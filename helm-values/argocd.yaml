@@ -1,0 +1,25 @@
+global:
+  domain: argocd.ahmedumami.click 
+
+server:
+  nameOverride: argocd-server
+  extraArgs:
+    - --insecure 
+  service:
+    type: ClusterIP
+    annotations:
+      external-dns.alpha.kubernetes.io/hostname: argocd.ahmedumami.click
+  ingress:
+    enabled: true
+    controller: generic
+    ingressClassName: nginx
+    annotations:
+      nginx.org/hsts: "false"
+      cert-manager.io/cluster-issuer: issuer
+      external-dns.alpha.kubernetes.io/hostname: argocd.ahmedumami.click
+    hosts:
+      - argocd.ahmedumami.click
+    tls:
+      - hosts:
+          - argocd.ahmedumami.click 
+        secretName: argocd-server-tls
