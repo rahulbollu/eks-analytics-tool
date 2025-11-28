@@ -1,6 +1,6 @@
 locals {
   name        = "eks-cluster"
-  domain      = "ahmedumami.click"
+  domain      = ""
   region      = "us-east-1"
   hosted_zone = ""
   zone_id     = ""
