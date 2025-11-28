@@ -23,12 +23,12 @@ terraform {
     }
   }
 
-  backend "s3" {
-    bucket  = "eks--project"
-    key     = "eks-lab"
-    region  = "eu-west-2"
-    encrypt = true
-  }
+  # backend "s3" {
+  #   bucket  = "eks--project"
+  #   key     = "eks-lab"
+  #   region  = "us-east-1"
+  #   encrypt = true
+  # }
 }
 
 provider "aws" {
