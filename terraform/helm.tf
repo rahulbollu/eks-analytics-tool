@@ -1,3 +1,6 @@
+#########################################################
+# NGINX INGRESS CONTROLLER
+#########################################################
 resource "helm_release" "nginx_ingress" {
   name       = "nginx-ingress-controller"
   repository = "https://kubernetes.github.io/ingress-nginx"
@@ -7,12 +10,15 @@ resource "helm_release" "nginx_ingress" {
   namespace        = "nginx-ingress"
 
   values = [
-    file("${path.module}/helm-values/nginx-ingress.yaml")
+    file("${path.module}/../helm-values/nginx-ingress.yaml")
   ]
 
   depends_on = [module.eks]
 }
 
+#########################################################
+# CERT-MANAGER (using HTTP-01 challenge — no DNS needed)
+#########################################################
 resource "helm_release" "cert_manager" {
   name       = "cert-manager"
   repository = "https://charts.jetstack.io"
@@ -22,7 +28,7 @@ resource "helm_release" "cert_manager" {
   namespace        = "cert-manager"
 
   values = [
-    file("${path.module}/helm-values/cert-manager.yaml")
+    file("${path.module}/../helm-values/cert-manager.yaml")
   ]
 
   depends_on = [
@@ -30,23 +36,29 @@ resource "helm_release" "cert_manager" {
   ]
 }
 
-resource "helm_release" "external_dns" {
-  name       = "external-dns"
-  repository = "https://kubernetes-sigs.github.io/external-dns"
-  chart      = "external-dns"
+#########################################################
+# EXTERNAL DNS (DISABLED — NO ROUTE53 HOSTED ZONE)
+#########################################################
+# resource "helm_release" "external_dns" {
+#   name       = "external-dns"
+#   repository = "https://kubernetes-sigs.github.io/external-dns"
+#   chart      = "external-dns"
+#
+#   create_namespace = true
+#   namespace        = "external-dns"
+#
+#   values = [
+#     file("${path.module}/../helm-values/external-dns.yaml")
+#   ]
+#
+#   depends_on = [
+#     module.external_dns_pod_identity,
+#   ]
+# }
 
-  create_namespace = true
-  namespace        = "external-dns"
-
-  values = [
-    file("${path.module}/helm-values/external-dns.yaml")
-  ]
-
-  depends_on = [
-    module.external_dns_pod_identity,
-  ]
-}
-
+#########################################################
+# ARGOCD
+#########################################################
 resource "helm_release" "argocd_deploy" {
   name       = "argocd"
   repository = "https://argoproj.github.io/argo-helm"
@@ -58,14 +70,19 @@ resource "helm_release" "argocd_deploy" {
   namespace        = "argo-cd"
 
   values = [
-    file("${path.module}/helm-values/argocd.yaml")
+    file("${path.module}/../helm-values/argocd.yaml")
   ]
 
-  depends_on = [helm_release.nginx_ingress, helm_release.cert_manager, helm_release.external_dns]
-
-
+  depends_on = [
+    helm_release.nginx_ingress,
+    helm_release.cert_manager
+    # external-dns removed
+  ]
 }
 
+#########################################################
+# PROMETHEUS STACK
+#########################################################
 resource "helm_release" "prometheus" {
   name       = "prometheus"
   repository = "https://prometheus-community.github.io/helm-charts"
@@ -76,26 +93,31 @@ resource "helm_release" "prometheus" {
   namespace        = "monitoring"
 
   values = [
-    file("${path.module}/helm-values/monitoring.yaml")
+    file("${path.module}/../helm-values/monitoring.yaml")
   ]
 
-  depends_on = [helm_release.nginx_ingress, helm_release.cert_manager, helm_release.external_dns]
+  depends_on = [
+    helm_release.nginx_ingress,
+    helm_release.cert_manager
+  ]
 }
 
-data "kubernetes_ingress_v1" "argocd" {
-  metadata {
-    name      = "argocd-server"
-    namespace = "argo-cd"
-  }
-
-  depends_on = [helm_release.argocd_deploy]
-}
-
-resource "aws_route53_record" "argocd" {
-  zone_id = local.zone_id
-  name    = "argocd.ahmedumami.click"
-  type    = "CNAME"
-  ttl     = 300
-  records = [data.kubernetes_ingress_v1.argocd.status[0].load_balancer[0].ingress[0].hostname]
-}
-
+#########################################################
+# DISABLED — Route53 not available for free-tier
+#########################################################
+# data "kubernetes_ingress_v1" "argocd" {
+#   metadata {
+#     name      = "argocd-server"
+#     namespace = "argo-cd"
+#   }
+#
+#   depends_on = [helm_release.argocd_deploy]
+# }
+#
+# resource "aws_route53_record" "argocd" {
+#   zone_id = local.zone_id
+#   name    = "argocd.${local.domain}"
+#   type    = "CNAME"
+#   ttl     = 300
+#   records = [data.kubernetes_ingress_v1.argocd.status[0].load_balancer[0].ingress[0].hostname]
+# }
